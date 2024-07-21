@@ -59,7 +59,7 @@ end
 -- Particle Effects
 local function createParticleEffect()
     local particleEmitter = Instance.new("ParticleEmitter")
-    particleEmitter.Texture = "rbxassetid://4923694846"  -- Custom particle texture
+    particleEmitter.Texture = "rbxassetid://1390780157"  -- Custom particle texture
     particleEmitter.Lifetime = NumberRange.new(0.5, 1)
     particleEmitter.Rate = 150  -- Increased rate
     particleEmitter.Speed = NumberRange.new(10, 20)  -- Increased speed
