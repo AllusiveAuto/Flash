@@ -1,0 +1,220 @@
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local character = player.Character
+local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+local normalSpeed = getgenv().Flash.Main.StartSpeed
+local maxSpeed = getgenv().Flash.Main.TopSpeed
+local burstSpeed = getgenv().Flash.Main.BurstSpeed
+local normalFOV = getgenv().Flash.FOV.NormalFov
+local maxFOV = getgenv().Flash.FOV.TopFov
+local burstFOV = getgenv().Flash.FOV.BurstFov
+local speedIncreaseRate = getgenv().Flash.Main.SpeedIncreaseRate
+local boostActive = false
+local burstActive = false
+
+-- Create Notification GUI
+local function createNotification(text)
+    local notification = Instance.new("ScreenGui")
+    notification.Name = "NotificationGui"
+    notification.Parent = player:WaitForChild("PlayerGui")
+    notification.IgnoreGuiInset = true
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 50)
+    frame.Position = UDim2.new(0.5, -150, 0, 20)
+    frame.BackgroundColor3 = Color3.new(0, 0, 0)
+    frame.BackgroundTransparency = 0.5
+    frame.BorderSizePixel = 0
+    frame.Parent = notification
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0.5
+    label.Text = text
+    label.TextScaled = true
+    label.Parent = frame
+    
+    local tweenIn = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -150, 0, 100)})
+    local tweenOut = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Position = UDim2.new(0.5, -150, 0, 20)})
+    
+    tweenIn:Play()
+    tweenIn.Completed:Connect(function()
+        wait(2)
+        tweenOut:Play()
+        tweenOut.Completed:Connect(function()
+            notification:Destroy()
+        end)
+    end)
+end
+
+-- Particle Effects
+local function createParticleEffect()
+    local particleEmitter = Instance.new("ParticleEmitter")
+    particleEmitter.Texture = "rbxassetid://4923694846"  -- Custom particle texture
+    particleEmitter.Lifetime = NumberRange.new(0.5, 1)
+    particleEmitter.Rate = 150  -- Increased rate
+    particleEmitter.Speed = NumberRange.new(10, 20)  -- Increased speed
+    particleEmitter.VelocitySpread = 360
+    particleEmitter.SpreadAngle = Vector2.new(0, 360)  -- Full circle spread
+    particleEmitter.RotSpeed = NumberRange.new(0, 100)  -- Add rotation
+    particleEmitter.Parent = character:WaitForChild("HumanoidRootPart")
+    particleEmitter.Enabled = false
+    return particleEmitter
+end
+
+local particleEmitter = createParticleEffect()
+
+local function createElectricTrail(part, humanoidRootPart)
+    local trail = Instance.new("Trail", part)
+    trail.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})
+    trail.Lifetime = 1.5
+    trail.LightEmission = 1
+    trail.Texture = "rbxassetid://1390780157"  -- Modified texture
+    trail.WidthScale = NumberSequence.new(1, 0.5)  -- Taper effect
+    trail.Enabled = false
+
+    local attachment0 = Instance.new("Attachment", part)
+    attachment0.Name = "TrailAttachment0"
+    local attachment1 = Instance.new("Attachment", humanoidRootPart)
+    attachment1.Name = "TrailAttachment1"
+    trail.Attachment0 = attachment0
+    trail.Attachment1 = attachment1
+
+    RunService.RenderStepped:Connect(function()
+        if trail.Enabled then
+            local hue = tick() % 1
+            local color = Color3.fromHSV(hue, 1, 1)
+            trail.Color = ColorSequence.new(color)
+        end
+    end)
+
+    return trail
+end
+
+local function createTrails()
+    local trails = {}
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") then
+            table.insert(trails, createElectricTrail(part, character:WaitForChild("HumanoidRootPart")))
+        end
+    end
+    return trails
+end
+
+local function setTrailsEnabled(enabled)
+    for _, trail in pairs(trails) do
+        trail.Enabled = enabled
+    end
+end
+
+local function createRainbowLightning()
+    local lightningAttachment = Instance.new("Attachment", character:WaitForChild("HumanoidRootPart"))
+    local lightning = Instance.new("Beam", character:WaitForChild("HumanoidRootPart"))
+    lightning.Attachment0 = lightningAttachment
+    lightning.Attachment1 = Instance.new("Attachment", character:WaitForChild("HumanoidRootPart"))
+    lightning.FaceCamera = true
+    lightning.LightEmission = 2
+    lightning.Width0 = 0.4
+    lightning.Width1 = 0.4
+    lightning.Texture = "rbxassetid://4923694846"
+    lightning.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})
+    lightning.Enabled = true
+
+    RunService.RenderStepped:Connect(function()
+        local hue = tick() % 1
+        local color = Color3.fromHSV(hue, 1, 1)
+        lightning.Color = ColorSequence.new(color)
+    end)
+
+    return lightning
+end
+
+local rainbowLightning = createRainbowLightning()
+
+local function setRainbowLightningEnabled(enabled)
+    rainbowLightning.Enabled = enabled
+end
+
+local function screenFlash()
+    local flash = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+    flash.IgnoreGuiInset = true
+    local frame = Instance.new("Frame", flash)
+    frame.BackgroundColor3 = Color3.new(1, 1, 1)
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
+
+    local tween = TweenService:Create(frame, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {BackgroundTransparency = 0})
+    tween:Play()
+    tween.Completed:Connect(function()
+        local tweenOut = TweenService:Create(frame, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
+        tweenOut:Play()
+        tweenOut.Completed:Connect(function()
+            flash:Destroy()
+        end)
+    end)
+end
+
+local function updateSpeedAndFOV(targetSpeed, targetFOV)
+    local speedTween = TweenService:Create(humanoid, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {WalkSpeed = targetSpeed})
+    local fovTween = TweenService:Create(Camera, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {FieldOfView = targetFOV})
+
+    speedTween:Play()
+    fovTween:Play()
+end
+
+local function toggleBoost()
+    boostActive = not boostActive
+    burstActive = false
+    setTrailsEnabled(boostActive)
+    particleEmitter.Enabled = boostActive
+    setRainbowLightningEnabled(not boostActive)
+    
+    if boostActive then
+        screenFlash()
+        createNotification("Speed Boost Enabled")
+        updateSpeedAndFOV(maxSpeed, maxFOV)
+    else
+        createNotification("Speed Boost Disabled")
+        updateSpeedAndFOV(normalSpeed, normalFOV)
+    end
+end
+
+local function activateBurst()
+    if boostActive and not burstActive then
+        burstActive = true
+        createNotification("Burst Activated")
+        updateSpeedAndFOV(burstSpeed, burstFOV)
+        wait(1) -- Duration of burst before returning to normal boosted speed
+        burstActive = false
+        updateSpeedAndFOV(maxSpeed, maxFOV)
+    end
+end
+
+local function onCharacterAdded(newCharacter)
+    character = newCharacter
+    humanoid = character:FindFirstChildOfClass("Humanoid")
+    trails = createTrails()
+    particleEmitter.Parent = character:WaitForChild("HumanoidRootPart")
+    setTrailsEnabled(boostActive)
+    particleEmitter.Enabled = boostActive
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+onCharacterAdded(character)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if input.KeyCode == Enum.KeyCode.F and not gameProcessedEvent then
+        toggleBoost()
+    elseif input.KeyCode == Enum.KeyCode.LeftShift and not gameProcessedEvent then
+        activateBurst()
+    end
+end)
