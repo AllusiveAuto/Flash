@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
+local SoundService = game:GetService("SoundService")
 
 local player = Players.LocalPlayer
 local character = player.Character
@@ -28,8 +29,8 @@ local function createNotification(text)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 300, 0, 50)
     frame.Position = UDim2.new(0.5, -150, 0, 20)
-    frame.BackgroundColor3 = Color3.new(0, 0, 0)
-    frame.BackgroundTransparency = 0.5
+    frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    frame.BackgroundTransparency = 0.6
     frame.BorderSizePixel = 0
     frame.Parent = notification
     
@@ -57,27 +58,37 @@ local function createNotification(text)
 end
 
 -- Particle Effects
-local function createParticleEffect()
+local function createParticleEffect(trailColor)
     local particleEmitter = Instance.new("ParticleEmitter")
     particleEmitter.Texture = "rbxassetid://1390780157"  -- Custom particle texture
     particleEmitter.Lifetime = NumberRange.new(0.5, 1)
-    particleEmitter.Rate = 150  -- Increased rate
+    particleEmitter.Rate = 500  -- Increased rate for more particles
     particleEmitter.Speed = NumberRange.new(10, 20)  -- Increased speed
     particleEmitter.VelocitySpread = 360
     particleEmitter.SpreadAngle = Vector2.new(0, 360)  -- Full circle spread
     particleEmitter.RotSpeed = NumberRange.new(0, 100)  -- Add rotation
+    particleEmitter.LightEmission = 2  -- Increase light emission for glowing effect
     particleEmitter.Parent = character:WaitForChild("HumanoidRootPart")
     particleEmitter.Enabled = false
+    
+    -- Flashing effect
+    local function flashParticles()
+        local hue = tick() % 1
+        local color = Color3.fromHSV(hue, 1, 1)
+        particleEmitter.Color = ColorSequence.new(color)
+    end
+    
+    RunService.RenderStepped:Connect(flashParticles)
+    
     return particleEmitter
 end
 
-local particleEmitter = createParticleEffect()
-
+-- Electric Trail
 local function createElectricTrail(part, humanoidRootPart)
     local trail = Instance.new("Trail", part)
-    trail.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})
+    trail.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.5)})
     trail.Lifetime = 1.5
-    trail.LightEmission = 1
+    trail.LightEmission = 2  -- Glowing effect
     trail.Texture = "rbxassetid://1390780157"  -- Modified texture
     trail.WidthScale = NumberSequence.new(1, 0.5)  -- Taper effect
     trail.Enabled = false
@@ -116,6 +127,7 @@ local function setTrailsEnabled(enabled)
     end
 end
 
+-- Rainbow Lightning
 local function createRainbowLightning()
     local lightningAttachment = Instance.new("Attachment", character:WaitForChild("HumanoidRootPart"))
     local lightning = Instance.new("Beam", character:WaitForChild("HumanoidRootPart"))
@@ -144,13 +156,14 @@ local function setRainbowLightningEnabled(enabled)
     rainbowLightning.Enabled = enabled
 end
 
+-- Screen Flash Effect
 local function screenFlash()
     local flash = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
     flash.IgnoreGuiInset = true
     local frame = Instance.new("Frame", flash)
     frame.BackgroundColor3 = Color3.new(1, 1, 1)
     frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundTransparency = 1
+    frame.BackgroundTransparency = 0.8
 
     local tween = TweenService:Create(frame, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {BackgroundTransparency = 0})
     tween:Play()
@@ -163,6 +176,50 @@ local function screenFlash()
     end)
 end
 
+-- Rainbow Shockwave Effect
+local function createShockwave()
+    local shockwave = Instance.new("Part")
+    shockwave.Size = Vector3.new(10, 1, 10)
+    shockwave.Position = character.HumanoidRootPart.Position
+    shockwave.Anchored = true
+    shockwave.CanCollide = false
+    shockwave.Material = Enum.Material.Neon
+    shockwave.Transparency = 0.5
+    shockwave.Parent = workspace
+
+    local beam = Instance.new("Beam", shockwave)
+    beam.Attachment0 = Instance.new("Attachment", shockwave)
+    beam.Attachment1 = Instance.new("Attachment", shockwave)
+    beam.LightEmission = 2
+    beam.Texture = "rbxassetid://4923694846"
+    beam.Width0 = 1
+    beam.Width1 = 1
+
+    local tween = TweenService:Create(shockwave, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = Vector3.new(30, 1, 30), Transparency = 1})
+    tween:Play()
+    tween.Completed:Connect(function()
+        shockwave:Destroy()
+    end)
+
+    RunService.RenderStepped:Connect(function()
+        local hue = tick() % 1
+        local color = Color3.fromHSV(hue, 1, 1)
+        beam.Color = ColorSequence.new(color)
+    end)
+end
+
+-- Custom Sound Effects
+local function playSound(id)
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://" .. id
+    sound.Parent = player.PlayerGui
+    sound:Play()
+    sound.Ended:Connect(function()
+        sound:Destroy()
+    end)
+end
+
+-- Update Speed and FOV
 local function updateSpeedAndFOV(targetSpeed, targetFOV)
     local speedTween = TweenService:Create(humanoid, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {WalkSpeed = targetSpeed})
     local fovTween = TweenService:Create(Camera, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {FieldOfView = targetFOV})
@@ -171,6 +228,7 @@ local function updateSpeedAndFOV(targetSpeed, targetFOV)
     fovTween:Play()
 end
 
+-- Toggle Boost
 local function toggleBoost()
     boostActive = not boostActive
     burstActive = false
@@ -180,29 +238,35 @@ local function toggleBoost()
     
     if boostActive then
         screenFlash()
+        createShockwave()
         createNotification("Speed Boost Enabled")
         updateSpeedAndFOV(maxSpeed, maxFOV)
+        playSound(9116274241)  -- Replace with the ID of your custom sound
     else
         createNotification("Speed Boost Disabled")
         updateSpeedAndFOV(normalSpeed, normalFOV)
     end
 end
 
+-- Activate Burst
 local function activateBurst()
     if boostActive and not burstActive then
         burstActive = true
         createNotification("Burst Activated")
         updateSpeedAndFOV(burstSpeed, burstFOV)
+        playSound(18161517588)  -- Replace with the ID of your custom sound
         wait(1) -- Duration of burst before returning to normal boosted speed
         burstActive = false
         updateSpeedAndFOV(maxSpeed, maxFOV)
     end
 end
 
+-- Character Added Event
 local function onCharacterAdded(newCharacter)
     character = newCharacter
     humanoid = character:FindFirstChildOfClass("Humanoid")
     trails = createTrails()
+    particleEmitter = createParticleEffect() -- Pass the trail color to particle effect
     particleEmitter.Parent = character:WaitForChild("HumanoidRootPart")
     setTrailsEnabled(boostActive)
     particleEmitter.Enabled = boostActive
@@ -211,6 +275,7 @@ end
 player.CharacterAdded:Connect(onCharacterAdded)
 onCharacterAdded(character)
 
+-- User Input Service
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if input.KeyCode == Enum.KeyCode.F and not gameProcessedEvent then
         toggleBoost()
